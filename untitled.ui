@@ -14,7 +14,11 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>AutoBuyer</string>
+   <string notr="true">AutoBuy</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>dist/icon.png</normaloff>dist/icon.png</iconset>
   </property>
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
@@ -117,6 +121,16 @@
         </property>
         <property name="checked">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="advancedLogsBox">
+        <property name="layoutDirection">
+         <enum>Qt::RightToLeft</enum>
+        </property>
+        <property name="text">
+         <string>Advanced logs</string>
         </property>
        </widget>
       </item>
