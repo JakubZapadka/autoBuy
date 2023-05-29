@@ -1,5 +1,6 @@
-from PyQt5.QtCore import QSortFilterProxyModel, Qt, QThread, QTimer
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIntValidator
+from PyQt5.QtCore import QSortFilterProxyModel, Qt, QThread
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIntValidator, QIcon
+from PyQt5.QtWidgets import QHeaderView
 
 from phoenixapi import phoenix
 from time import sleep
@@ -7,9 +8,7 @@ import winsound
 import psutil
 from datetime import datetime
 import json
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtWidgets import QCompleter, QPushButton, QHeaderView
-import random
+from PyQt5 import QtCore, QtWidgets, uic
 
 
 now = datetime.now()
@@ -53,6 +52,8 @@ def program():
 
         file = open('autoBuy.json')
         items_to_buy = json.load(file)
+        last_sec = 0
+        which_item_now = 0
         while api.working() and stop == False:
             # TIME
             now = datetime.now()
@@ -64,17 +65,25 @@ def program():
                 if json_msg["type"] == phoenix.Type.packet_recv.value and "rc_blist" in json_msg["packet"]:
                     first_ele = json_msg["packet"].split()[2].split("|")
                     for item in items_to_buy:
-                        if int(first_ele[6]) <= int(item["price_to_buy"]) and first_ele[3] == item["id"]:
-                            if int(first_ele[4]) * int(first_ele[6]) <= gold_limit:
-                                api.send_packet(f"c_buy {first_ele[0]} {first_ele[3]} {first_ele[4]} {first_ele[6]}")
-                                # PRINT
-                            else:
-                                if window.soundAllert.isChecked():
-                                    winsound.Beep(2000, 500)
-                                log_box.append(f"{current_time} [NO GOLD] for {item['name']} x{int(first_ele[4])} in price: {first_ele[6]}")
-                            break
-                        else:
-                            continue
+                        if first_ele[3] == item["id"]:
+                            if window.advancedLogsBox.isChecked():
+                                log_box.append(f"{current_time} [RECV] got information about {item['name']}")
+                            if int(first_ele[6]) <= int(item["price_to_buy"]):
+                                ilosc = int(first_ele[4])
+                                while ilosc * int(first_ele[6]) > gold_limit:
+                                    ilosc -= 1
+                                    if ilosc == 0:
+                                        if window.soundAllert.isChecked():
+                                            winsound.Beep(2000, 500)
+                                        log_box.append(
+                                            f"{current_time} [NO GOLD] for {item['name']} in price: {first_ele[6]}")
+                                    if ilosc * int(first_ele[6]) <= gold_limit:
+                                        api.send_packet(
+                                            f"c_buy {first_ele[0]} {first_ele[3]} {ilosc} {first_ele[6]}")
+                                if int(first_ele[4]) * int(first_ele[6]) <= gold_limit:
+                                    api.send_packet(f"c_buy {first_ele[0]} {first_ele[3]} {first_ele[4]} {first_ele[6]}")
+                                    # PRINT
+                                break
                 elif json_msg["type"] == phoenix.Type.packet_recv.value and "rc_buy" in json_msg["packet"]:
                     first_ele = json_msg["packet"].split()
                     if first_ele[1] != 0 and len(first_ele) >= 6:
@@ -86,12 +95,19 @@ def program():
                                 log_box.append(f"{current_time} [PURCHASE] {item['name']} x{first_ele[4]} {first_ele[5]}/each")
                                 log_box.append(f"Left {str(gold_limit)} gold")
             else:
-                #log_box.append(f"{current_time} [SEND] sending packets to get information")
-                for item in items_to_buy:
-                    #log_box.append(f"{current_time}")
-                    api.send_packet(f"c_blist  0 0 0 0 0 0 0 0 1 {item['id']}")
-                    sleep(random.randint(10, 40)*0.01)
-                sleep(random.randint(80, 100)*0.1)
+                # TIME
+                now = datetime.now()
+                current_sec = now.strftime("%S")
+                # TIMEEND
+                if int(current_sec)%2 == 0 and last_sec != int(current_sec):
+                    last_sec = int(current_sec)
+                    if window.advancedLogsBox.isChecked():
+                        log_box.append(f"{current_time} [SEND] packet to get information about {items_to_buy[which_item_now]['name']}")
+                    api.send_packet(f"c_blist  0 0 0 0 0 0 0 0 1 {items_to_buy[which_item_now]['id']}")
+                    which_item_now += 1
+                    if which_item_now == len(items_to_buy):
+                        which_item_now = 0
+                    sleep(0.01)
         api.close()
         # TIME
         now = datetime.now()
@@ -219,6 +235,8 @@ if __name__ == "__main__":
     model = QStandardItemModel()
     item_list.setModel(model)
 
+    # This will make all columns stretch to fill the space
+    item_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
     def show_autobuy():
         file = open('autoBuy.json')
@@ -234,10 +252,6 @@ if __name__ == "__main__":
             name_item.setEditable(False)
             model.appendRow([name_item, QStandardItem(f"{item['price_to_buy']}")])
             #model.appendRow([name_item, QStandardItem(f"{item['price_to_buy']}"), id_item])
-        item_list.horizontalHeader().setStretchLastSection(True)
-        item_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        item_list.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         model.setHeaderData(0, QtCore.Qt.Horizontal, "Name")
         model.setHeaderData(1, QtCore.Qt.Horizontal, "Price to buy")
         #model.setHeaderData(2, QtCore.Qt.Horizontal, "Item id")
