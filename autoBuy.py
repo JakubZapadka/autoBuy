@@ -54,6 +54,8 @@ def program():
         items_to_buy = json.load(file)
         last_sec = 0
         which_item_now = 0
+        delay_time = int(window.delayTime.text())
+        delay_time_route = int(window.delayTimeRoute.text())
         while api.working() and stop == False:
             # TIME
             now = datetime.now()
@@ -62,7 +64,7 @@ def program():
             if not api.empty():
                 msg = api.get_message()
                 json_msg = json.loads(msg)
-                if json_msg["type"] == phoenix.Type.packet_recv.value and "rc_blist" in json_msg["packet"]:
+                if json_msg["type"] == phoenix.Type.packet_recv.value and json_msg["packet"].startswith("rc_blist"):
                     first_ele = json_msg["packet"].split()[2].split("|")
                     for item in items_to_buy:
                         if first_ele[3] == item["id"]:
@@ -83,8 +85,11 @@ def program():
                                 if int(first_ele[4]) * int(first_ele[6]) <= gold_limit:
                                     api.send_packet(f"c_buy {first_ele[0]} {first_ele[3]} {first_ele[4]} {first_ele[6]}")
                                     # PRINT
-                                break
-                elif json_msg["type"] == phoenix.Type.packet_recv.value and "rc_buy" in json_msg["packet"]:
+                            if item == items_to_buy[-1]:
+                                if window.advancedLogsBox.isChecked():
+                                    log_box.append(f"{current_time} [DELAY] {delay_time_route} sec")
+                                sleep(delay_time_route)
+                elif json_msg["type"] == phoenix.Type.packet_recv.value and json_msg["packet"].startswith("rc_buy"):
                     first_ele = json_msg["packet"].split()
                     if first_ele[1] != 0 and len(first_ele) >= 6:
                         if window.soundAllert.isChecked():
@@ -99,7 +104,7 @@ def program():
                 now = datetime.now()
                 current_sec = now.strftime("%S")
                 # TIMEEND
-                if int(current_sec)%2 == 0 and last_sec != int(current_sec):
+                if int(current_sec)%delay_time == 0 and last_sec != int(current_sec):
                     last_sec = int(current_sec)
                     if window.advancedLogsBox.isChecked():
                         log_box.append(f"{current_time} [SEND] packet to get information about {items_to_buy[which_item_now]['name']}")
